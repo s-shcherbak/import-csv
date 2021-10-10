@@ -4,7 +4,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-
+    csv_reader_batch: 5000
+    db_writer_batch: 100
 services:
     # default configuration for services in *this* file
     _defaults:

@@ -10,17 +10,11 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Output\OutputInterface;
-use App\Model\ProductModel;
 use App\Service\Utils\CsvProductImport;
 
 class CsvImportProductCommand extends Command
 {
     protected static $defaultName = 'app:csv-import-product';
-
-    /**
-     * @var ProductModel
-     */
-    private $product;
 
     /**
      * @var CsvProductImport
@@ -29,12 +23,10 @@ class CsvImportProductCommand extends Command
 
 
     public function __construct(
-        ProductModel $product,
         CsvProductImport $csvProductImport
     )
     {
         parent::__construct();
-        $this->product = $product;
         $this->csvProductImport = $csvProductImport;
     }
     protected function configure(): void
@@ -48,16 +40,12 @@ class CsvImportProductCommand extends Command
                 'Test mode. This will perform
                 everything the normal import does, but not insert the data into the database.',
                 0
-            )
-            ->addOption(
-                'view-error',
-                null,
-                InputOption::VALUE_OPTIONAL,
-                'View 100 lines error in csv',
-                0
             );
     }
 
+    /**
+     * @throws \League\Csv\Exception
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $output->writeln([
@@ -73,34 +61,28 @@ class CsvImportProductCommand extends Command
             $output->writeln('File not exist - ' . $csvPath);
             return Command::FAILURE;
         }
-        $resultRows = $this->csvProductImport->execute($csvPath);
 
-        if (count($resultRows) === 0) {
-            $output->writeln('File data is empty or invalid - ' . $csvPath);
-        }
+        $testMode = $input->getOption('test') !== 0;
 
-        if ($input->getOption('test') === 0 && count($resultRows) > 0) {
-            $output->writeln([
-                'Writing to DB',
-            ]);
-            [   $countInsertProduct,
-                $countRewriteProduct,
-                $countErrorProduct
-            ] = $this->product->addProducts($resultRows, $output);
+        $statusExecute = $this->csvProductImport->execute($csvPath, $output, $testMode);
 
-            $this->csvProductImport->updateRowCountByDB($countInsertProduct, $countErrorProduct);
-
+        if (!$statusExecute || $this->csvProductImport->getRowCount() === 0) {
             $output->writeln([
                 '',
+                'File data is empty or invalid - ' . $csvPath
             ]);
-        } else {
+        }
+
+        if ($testMode) {
             $output->writeln([
+                '',
                 'Test Mode - no writing rows in DB',
                 '============',
             ]);
         }
 
         $output->writeln([
+            '',
             'Total processed rows: ' . $this->csvProductImport->getRowCount(),
             '============',
         ]);
@@ -114,18 +96,6 @@ class CsvImportProductCommand extends Command
             'Total error rows: ' . $this->csvProductImport->getRowErrorCount(),
             '============',
         ]);
-
-        if ($input->getOption('view-error') !== 0 && $this->csvProductImport->getRowErrorCount() > 0) {
-            $output->writeln([
-                'Error rows (first 100 lines): ',
-                '============',
-            ]);
-            $table = new Table($output);
-            $table
-                ->setHeaders(['line_id'] + $this->csvProductImport->getHeaderFile())
-                ->setRows(array_slice($this->csvProductImport->getRowsError(), 0, 100));
-            $table->render();
-        }
 
         return Command::SUCCESS;
     }

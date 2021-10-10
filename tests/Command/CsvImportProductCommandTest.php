@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Command;
 
 use App\Command\CsvImportProductCommand;
-use App\Model\ProductModel;
+use App\Product\WriteDbProduct;
+use App\Product\ProductImport;
 use App\Service\Utils\CsvProductImport;
 use App\Tests\BaseTest;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Validator\Validation;
 
 /**
@@ -25,6 +28,9 @@ class CsvImportProductCommandTest extends BaseTest
         $kernel = $this->createKernel();
         $kernel->boot();
 
+        $csvReaderBatch = 1000;
+        $dbWriterBatch = 100;
+
         $entityManager = $kernel->getContainer()
             ->get('doctrine')
             ->getManager();
@@ -32,9 +38,18 @@ class CsvImportProductCommandTest extends BaseTest
         $validator = Validation::createValidator();
 
         $app = new Application($kernel);
-        $productModel = new ProductModel($entityManager, $validator);
-        $csvProductImport = new CsvProductImport();
-        $app->add(new CsvImportProductCommand($productModel, $csvProductImport, 'upload/csv'));
+        $parameterBagImportInterface = $this->createMock(ParameterBagInterface::class);
+        $parameterBagImportInterface->expects($this->once())
+            ->method('get')
+            ->willReturn($csvReaderBatch);
+        $parameterBagDBInterface = $this->createMock(ParameterBagInterface::class);
+        $parameterBagDBInterface->expects($this->once())
+            ->method('get')
+            ->willReturn($dbWriterBatch);
+        $writeDbProduct = new WriteDbProduct($entityManager, $validator, $parameterBagDBInterface);
+        $productImport = new ProductImport();
+        $csvProductImport = new CsvProductImport($parameterBagImportInterface, $productImport, $writeDbProduct);
+        $app->add(new CsvImportProductCommand($csvProductImport, 'upload/csv'));
         $command = $app->find('app:csv-import-product');
         $this->commandTester = new CommandTester($command);
     }
