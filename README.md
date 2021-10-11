@@ -7,6 +7,7 @@ docker-compose up -d <br>
 docker-compose exec php bash <br>
 composer install <br>
 php bin/console doctrine:migrations:migrate
+copy .env.local to .env
 </b>
 <br><br>
 <h2>Run script</h2>
