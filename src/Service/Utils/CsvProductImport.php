@@ -1,11 +1,10 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Service\Utils;
 
 use App\Product\WriteDbProduct;
-use App\Product\ProductImport;
+use App\Product\Csv\ProductImport;
 use League\Csv\Reader;
 use League\Csv\Statement;
 use League\Csv\Exception;
@@ -149,7 +148,7 @@ class CsvProductImport implements ProductImportInterface
                 /* @var $records \Iterator */
                 $records = $stmt->process($reader)->getRecords();
 
-                [$rowsSuccess, $rowsCountSuccess, $rowsCountError] = $this->productImport->parseCsv($records);
+                [$rowsSuccess, $rowsCountSuccess, $rowsCountError] = $this->productImport->parse($records);
 
                 $this->updateRowsValidCount($rowsCountSuccess);
                 $this->updateRowsErrorCount($rowsCountError);

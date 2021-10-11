@@ -1,17 +1,16 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Tests\Service\Utils;
 
-use App\Product\ProductImport;
+use App\Product\Csv\ProductImport;
 use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
 use App\Service\Utils\CsvProductImport;
 use App\Tests\BaseTest;
 use DateTimeInterface;
 use League\Csv\Reader;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Validator\Validation;
 
@@ -44,7 +43,7 @@ class CsvProductImportTest extends BaseTest
         $serialize = new SerializeProduct();
         $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
 
-        $this->productImport = new ProductImport($serialize);
+        $this->productImport = new ProductImport($serialize, $validator);
 
         $this->csvProductImport = new CsvProductImport(
             $parameterBagImportInterface,
@@ -71,13 +70,13 @@ class CsvProductImportTest extends BaseTest
                 'dateAdded' => $dateTime,
                 'timestamp' => $dateTime,
                 'stock' => 10,
-                'price' => '399.99'
+                'price' => 399.99
             ]],
             1,
             0
         ];
 
-        $this->assertSame($assertResult, $this->productImport->parseCsv($records));
+        $this->assertSame($assertResult, $this->productImport->parse($records));
         $this->assertSame(true, $parseToArray);
         $this->assertSame(1, $this->csvProductImport->getRowValidCount());
         $this->assertSame(0, $this->csvProductImport->getRowErrorCount());

@@ -1,11 +1,14 @@
 <?php
+declare(strict_types=1);
 
-namespace App\Product;
+namespace App\Product\Csv;
 
 use App\Entity\Product;
+use App\Product\ProductImportAbstract;
 use App\Product\SerializeProduct;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-class ProductImport
+class ProductImport extends ProductImportAbstract
 {
     private array $headerLabel = [];
     private int $minStockAmount = 10;
@@ -18,16 +21,24 @@ class ProductImport
      */
     private $serialize;
 
+    /**
+     * @var ValidatorInterface
+     */
+    private $validator;
+
     public function __construct(
-        SerializeProduct  $serialize
+        SerializeProduct  $serialize,
+        ValidatorInterface $validator
     ) {
         $this->serialize = $serialize;
+        $this->validator = $validator;
     }
 
     /**
-     * @param array
+     * @param float $price
+     * @param int $stock
      *
-     * @return boolean
+     * @return bool
      */
     protected function isImportRulesCorrect(float $price, int $stock): bool
     {
@@ -58,35 +69,56 @@ class ProductImport
     }
 
     /**
-     * @param array
+     * @param string|null $code
      *
-     * @return boolean
+     * @return bool
      */
-    private function isNotNullCodeRow(?string $code): bool
+    protected function isNotNullCodeRow(?string $code): bool
     {
         return $code !== null;
     }
 
-    private function isDiscontinued(?string $discontinued): bool
+    /**
+     * @param string|null $discontinued
+     *
+     * @return bool
+     */
+    protected function isDiscontinued(?string $discontinued): bool
     {
         return $discontinued === self::DISCONTINUED_YES;
     }
 
-    private function getStock(?int $stock): int
+    /**
+     * @param int|null $stock
+     *
+     * @return int
+     */
+    protected function getStock(?int $stock): int
     {
         return is_numeric($stock)
             ? (int) $stock
             : 0;
     }
 
-    private function getPrice(?float $price): float
+    /**
+     * @param float|null $price
+     *
+     * @return float
+     */
+    protected function getPrice(?float $price): float
     {
         return is_numeric($price)
             ? (float) $price
             : 0;
     }
 
-    private function setProduct(array $record, \DateTime $nowDateTime): Product
+    /**
+     * @param array $record
+     * @param \DateTime $nowDateTime
+     *
+     * @return Product
+     */
+    protected function setProduct(array $record, \DateTime $nowDateTime): Product
     {
         $code = $record[$this->headerLabel['code']];
         $name = $record[$this->headerLabel['name']];
@@ -110,7 +142,25 @@ class ProductImport
         return $product;
     }
 
-    public function parseCsv(\Iterator $records): array
+    /**
+     * @param Product $product
+     *
+     * @return bool
+     */
+    protected function checkSuccessProductRow(Product $product): bool
+    {
+        /** isImportRulesCorrect - function with logic filtering product and not valid product without code **/
+        return $this->isImportRulesCorrect($product->getPrice(), $product->getStock())
+            && $this->isNotNullCodeRow($product->getCode())
+            && $this->validator->validate($product)->count() === 0;
+    }
+
+    /**
+     * @param \Iterator $records
+     *
+     * @return array
+     */
+    public function parse(\Iterator $records): array
     {
         $rowsSuccess = [];
         $rowsCountSuccess = 0;
@@ -120,15 +170,12 @@ class ProductImport
         /** set settings for normalize object to array */
         $this->serialize->setSerializeSettings();
 
-        foreach ($records as $offset => $record) {
+        foreach ($records as $record) {
             $product = $this->setProduct($record, $nowDateTime);
 
             $productJson = $this->serialize->getNormalizeProduct($product);
 
-            /** isImportRulesCorrect - function with logic filtering product and not valid product without code **/
-            if ($this->isImportRulesCorrect($product->getPrice(), $product->getStock())
-                && $this->isNotNullCodeRow($product->getCode())
-            ) {
+            if ($this->checkSuccessProductRow($product)) {
                 $rowsSuccess[$product->getCode()] = $productJson;
                 $rowsCountSuccess++;
             } else {

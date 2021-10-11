@@ -1,5 +1,4 @@
 <?php
-
 declare(strict_types=1);
 
 namespace App\Tests\Command;
@@ -7,7 +6,7 @@ namespace App\Tests\Command;
 use App\Command\CsvImportProductCommand;
 use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
-use App\Product\ProductImport;
+use App\Product\Csv\ProductImport;
 use App\Service\Utils\CsvProductImport;
 use App\Tests\BaseTest;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -49,7 +48,7 @@ class CsvImportProductCommandTest extends BaseTest
             ->willReturn($dbWriterBatch);
         $serialize = new SerializeProduct();
         $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
-        $productImport = new ProductImport($serialize);
+        $productImport = new ProductImport($serialize, $validator);
         $csvProductImport = new CsvProductImport($parameterBagImportInterface, $productImport, $writeDbProduct);
         $app->add(new CsvImportProductCommand($csvProductImport, 'upload/csv'));
         $command = $app->find('app:csv-import-product');
