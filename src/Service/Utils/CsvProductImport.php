@@ -143,8 +143,8 @@ class CsvProductImport implements ProductImportInterface
 
             $offset = 0;
             $stmt = Statement::create()->offset($offset)->limit($this->csvReaderBatch);
-            $notFindNewRows = true;
-            while ($notFindNewRows) {
+            $notFindNewRows = false;
+            while (!$notFindNewRows) {
                 /* @var $records \Iterator */
                 $records = $stmt->process($reader)->getRecords();
 
@@ -165,7 +165,7 @@ class CsvProductImport implements ProductImportInterface
                 $progressBar->advance($this->csvReaderBatch);
 
                 if ($rowsCountSuccess + $rowsCountError == 0) {
-                    $notFindNewRows = false;
+                    $notFindNewRows = true;
                 }
             }
             $progressBar->finish();
