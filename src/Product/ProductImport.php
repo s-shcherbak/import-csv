@@ -3,10 +3,7 @@
 namespace App\Product;
 
 use App\Entity\Product;
-use Symfony\Component\Serializer\Encoder\JsonEncoder;
-use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
+use App\Product\SerializeProduct;
 
 class ProductImport
 {
@@ -15,6 +12,17 @@ class ProductImport
     private int $minCostAmount = 5;
     private int $maxCostAmount = 1000;
     public const DISCONTINUED_YES = 'yes';
+
+    /**
+     * @var SerializeProduct
+     */
+    private $serialize;
+
+    public function __construct(
+        SerializeProduct  $serialize
+    ) {
+        $this->serialize = $serialize;
+    }
 
     /**
      * @param array
@@ -109,19 +117,13 @@ class ProductImport
         $rowsCountError = 0;
         $nowDateTime = new \DateTime("now");
 
-        $encoders = [new JsonEncoder()];
-        $normalizers = [
-            new DateTimeNormalizer([DateTimeNormalizer::FORMAT_KEY => \DateTime::RFC3339]),
-            new ObjectNormalizer()
-        ];
-        $serializer = new Serializer($normalizers, $encoders);
+        /** set settings for normalize object to array */
+        $this->serialize->setSerializeSettings();
 
         foreach ($records as $offset => $record) {
             $product = $this->setProduct($record, $nowDateTime);
 
-            $productJson = $serializer->normalize($product, 'json', [
-                ObjectNormalizer::SKIP_NULL_VALUES => true,
-            ]);
+            $productJson = $this->serialize->getNormalizeProduct($product);
 
             /** isImportRulesCorrect - function with logic filtering product and not valid product without code **/
             if ($this->isImportRulesCorrect($product->getPrice(), $product->getStock())

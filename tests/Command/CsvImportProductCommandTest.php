@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Command;
 
 use App\Command\CsvImportProductCommand;
+use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
 use App\Product\ProductImport;
 use App\Service\Utils\CsvProductImport;
@@ -46,8 +47,9 @@ class CsvImportProductCommandTest extends BaseTest
         $parameterBagDBInterface->expects($this->once())
             ->method('get')
             ->willReturn($dbWriterBatch);
-        $writeDbProduct = new WriteDbProduct($entityManager, $validator, $parameterBagDBInterface);
-        $productImport = new ProductImport();
+        $serialize = new SerializeProduct();
+        $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
+        $productImport = new ProductImport($serialize);
         $csvProductImport = new CsvProductImport($parameterBagImportInterface, $productImport, $writeDbProduct);
         $app->add(new CsvImportProductCommand($csvProductImport, 'upload/csv'));
         $command = $app->find('app:csv-import-product');

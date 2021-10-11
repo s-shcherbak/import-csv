@@ -3,14 +3,8 @@
 namespace App\Product;
 
 use App\Entity\Product;
-use DateTimeInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\Serializer\Exception\ExceptionInterface;
-use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class WriteDbProduct
@@ -24,15 +18,22 @@ class WriteDbProduct
      */
     private $validator;
 
+    /**
+     * @var SerializeProduct
+     */
+    private $serialize;
+
     private int $dbWriterBatch;
 
     public function __construct(
         EntityManagerInterface $em,
         ValidatorInterface $validator,
+        SerializeProduct  $serialize,
         ParameterBagInterface $params
     ) {
         $this->em = $em;
         $this->validator = $validator;
+        $this->serialize = $serialize;
         $this->dbWriterBatch = $params->get('db_writer_batch');
 
     }
@@ -47,6 +48,8 @@ class WriteDbProduct
         $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
 
         $isStartTransaction = true;
+        /** set settings for denormalize array to object */
+        $this->serialize->setDenormalizeSettings();
 
         foreach ($productsRowJson as $code => $productRowJson) {
             if ($isStartTransaction) {
@@ -60,24 +63,10 @@ class WriteDbProduct
                     $product = new Product();
                 }
 
-                $normalizers = array(
-                    new DateTimeNormalizer([
-                        DateTimeNormalizer::FORMAT_KEY => DateTimeInterface::RFC3339,
-                    ]),
-                    new ObjectNormalizer(
-                        null,
-                        null,
-                        null,
-                        new ReflectionExtractor()
-                    ),
-                );
-                $serializer = new Serializer($normalizers);
                 /* @var $product Product */
-                $product = $serializer->denormalize(
+                $product = $this->serialize->getDenormalizeProduct(
                     $productRowJson,
-                    Product::class,
-                    'json',
-                    ['object_to_populate' => $product]
+                    $product
                 );
 
                 $errors = $this->validator->validate($product);
@@ -97,7 +86,7 @@ class WriteDbProduct
                     $this->em->clear();
                     $isStartTransaction = true;
                 }
-            } catch (ExceptionInterface $e) {
+            } catch (\Exception $e) {
                 $this->em->getConnection()->rollback();
                 $this->em->close();
 

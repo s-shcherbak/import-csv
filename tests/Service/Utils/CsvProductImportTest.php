@@ -3,6 +3,7 @@
 namespace App\Tests\Service\Utils;
 
 use App\Product\ProductImport;
+use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
 use App\Service\Utils\CsvProductImport;
 use App\Tests\BaseTest;
@@ -40,9 +41,10 @@ class CsvProductImportTest extends BaseTest
         $parameterBagDBInterface->expects($this->once())
             ->method('get')
             ->willReturn($dbWriterBatch);
-        $writeDbProduct = new WriteDbProduct($entityManager, $validator, $parameterBagDBInterface);
+        $serialize = new SerializeProduct();
+        $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
 
-        $this->productImport = new ProductImport();
+        $this->productImport = new ProductImport($serialize);
 
         $this->csvProductImport = new CsvProductImport(
             $parameterBagImportInterface,
