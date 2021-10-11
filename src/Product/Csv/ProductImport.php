@@ -11,10 +11,6 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class ProductImport extends ProductImportAbstract
 {
     private array $headerLabel = [];
-    private int $minStockAmount = 10;
-    private int $minCostAmount = 5;
-    private int $maxCostAmount = 1000;
-    public const DISCONTINUED_YES = 'yes';
 
     /**
      * @var SerializeProduct
@@ -34,18 +30,6 @@ class ProductImport extends ProductImportAbstract
         $this->validator = $validator;
     }
 
-    /**
-     * @param float $price
-     * @param int $stock
-     *
-     * @return bool
-     */
-    protected function isImportRulesCorrect(float $price, int $stock): bool
-    {
-        return ($price >= $this->minCostAmount
-                && $stock >= $this->minStockAmount)
-            && ($price <= $this->maxCostAmount);
-    }
 
     /**
      * @param array
@@ -66,50 +50,6 @@ class ProductImport extends ProductImportAbstract
             return true;
         }
         return false;
-    }
-
-    /**
-     * @param string|null $code
-     *
-     * @return bool
-     */
-    protected function isNotNullCodeRow(?string $code): bool
-    {
-        return $code !== null;
-    }
-
-    /**
-     * @param string|null $discontinued
-     *
-     * @return bool
-     */
-    protected function isDiscontinued(?string $discontinued): bool
-    {
-        return $discontinued === self::DISCONTINUED_YES;
-    }
-
-    /**
-     * @param int|null $stock
-     *
-     * @return int
-     */
-    protected function getStock(?int $stock): int
-    {
-        return is_numeric($stock)
-            ? (int) $stock
-            : 0;
-    }
-
-    /**
-     * @param float|null $price
-     *
-     * @return float
-     */
-    protected function getPrice(?float $price): float
-    {
-        return is_numeric($price)
-            ? (float) $price
-            : 0;
     }
 
     /**
