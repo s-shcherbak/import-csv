@@ -6,6 +6,7 @@ namespace App\Product;
 use App\Entity\Product;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\Serializer\Encoder\JsonEncoder;
+use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
@@ -13,7 +14,7 @@ use Symfony\Component\Serializer\Serializer;
 
 class SerializeProduct
 {
-    public $serialize;
+    public Serializer $serialize;
 
     public function __construct()
     {
@@ -25,6 +26,9 @@ class SerializeProduct
         $this->serialize = new Serializer($normalizers, $encoders);
     }
 
+    /**
+     * @throws ExceptionInterface
+     */
     public function getNormalizeProduct(Product $product): array
     {
         return $this->serialize->normalize($product, 'json', [
@@ -32,13 +36,16 @@ class SerializeProduct
         ]);
     }
 
-    public function getDenormalizeProduct(array $productRowJson, Product $product): Product
+    /**
+     * @throws ExceptionInterface
+     */
+    public function getDenormalizeProduct(array $productRowJson, ?Product $product): Product
     {
         return $this->serialize->denormalize(
             $productRowJson,
             Product::class,
             'json',
-            ['object_to_populate' => $product]
+            $product !== null ?  ['object_to_populate' => $product] : []
         );
     }
 

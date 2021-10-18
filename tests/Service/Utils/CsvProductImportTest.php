@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Service\Utils;
 
-use App\Product\Csv\ProductImport;
 use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
 use App\Service\Utils\CsvProductImport;
@@ -16,8 +15,7 @@ use Symfony\Component\Validator\Validation;
 
 class CsvProductImportTest extends BaseTest
 {
-    public $csvProductImport;
-    public $productImport;
+    public CsvProductImport $csvProductImport;
 
     public function setUp(): void
     {
@@ -43,12 +41,11 @@ class CsvProductImportTest extends BaseTest
         $serialize = new SerializeProduct();
         $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
 
-        $this->productImport = new ProductImport($serialize, $validator);
-
         $this->csvProductImport = new CsvProductImport(
             $parameterBagImportInterface,
-            $this->productImport,
-            $writeDbProduct
+            $writeDbProduct,
+            $serialize,
+            $validator
         );
     }
 
@@ -67,30 +64,32 @@ class CsvProductImportTest extends BaseTest
                 'name' => 'TV',
                 'description' => '32 Tv',
                 'code' => 'P0001',
+                'stock' => 10,
+                'price' => 399.99,
                 'dateAdded' => $dateTime,
                 'timestamp' => $dateTime,
-                'stock' => 10,
-                'price' => 399.99
+                'discontinued' => ''
             ]],
             1,
             0
         ];
 
-        $this->assertSame($assertResult, $this->productImport->parse($records));
+        $parseRecords = $this->invokeMethod($this->csvProductImport, 'parse', [$records]);
+        $this->assertSame($assertResult, $parseRecords);
         $this->assertSame(true, $parseToArray);
         $this->assertSame(1, $this->csvProductImport->getRowValidCount());
         $this->assertSame(0, $this->csvProductImport->getRowErrorCount());
 
-        $getStock = $this->invokeMethod($this->productImport, 'getStock', ['10']);
+        $getStock = $this->invokeMethod($this->csvProductImport, 'getStock', ['10']);
         $this->assertSame(10, $getStock);
-        $getStock = $this->invokeMethod($this->productImport, 'getStock', ['0']);
+        $getStock = $this->invokeMethod($this->csvProductImport, 'getStock', ['0']);
         $this->assertSame(0, $getStock);
-        $getPrice = $this->invokeMethod($this->productImport, 'getPrice', ['10.30']);
+        $getPrice = $this->invokeMethod($this->csvProductImport, 'getPrice', ['10.30']);
         $this->assertSame(10.3, $getPrice);
-        $getPrice = $this->invokeMethod($this->productImport, 'getPrice', ['0']);
+        $getPrice = $this->invokeMethod($this->csvProductImport, 'getPrice', ['0']);
         $this->assertSame(0.0, $getPrice);
 
-        $checkSetHeader = $this->invokeMethod($this->productImport, 'setHeaderLabel', [$header]);
+        $checkSetHeader = $this->invokeMethod($this->csvProductImport, 'setHeaderLabel', [$header]);
         $this->assertSame(true, $checkSetHeader);
     }
 
@@ -103,7 +102,7 @@ class CsvProductImportTest extends BaseTest
         $this->assertSame(0, $this->csvProductImport->getRowValidCount());
         $this->assertSame(0, $this->csvProductImport->getRowErrorCount());
 
-        $checkSetHeader = $this->invokeMethod($this->productImport, 'setHeaderLabel', [$header]);
+        $checkSetHeader = $this->invokeMethod($this->csvProductImport, 'setHeaderLabel', [$header]);
         $this->assertSame(false, $checkSetHeader);
     }
 
@@ -112,7 +111,7 @@ class CsvProductImportTest extends BaseTest
         $price = 399.99;
         $stock = 10;
 
-        $isImportRules = $this->invokeMethod($this->productImport, 'isImportRulesCorrect', [$price, $stock]);
+        $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
         $this->assertSame(true, $isImportRules);
     }
 
@@ -121,7 +120,7 @@ class CsvProductImportTest extends BaseTest
         $price = 399.99;
         $stock = 1;
 
-        $isImportRules = $this->invokeMethod($this->productImport, 'isImportRulesCorrect', [$price, $stock]);
+        $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
         $this->assertSame(false, $isImportRules);
     }
 
@@ -130,7 +129,7 @@ class CsvProductImportTest extends BaseTest
         $price = 1399.99;
         $stock = 50;
 
-        $isImportRules = $this->invokeMethod($this->productImport, 'isImportRulesCorrect', [$price, $stock]);
+        $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
         $this->assertSame(false, $isImportRules);
     }
 
@@ -139,7 +138,7 @@ class CsvProductImportTest extends BaseTest
         $price = 4.99;
         $stock = 50;
 
-        $isImportRules = $this->invokeMethod($this->productImport, 'isImportRulesCorrect', [$price, $stock]);
+        $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
         $this->assertSame(false, $isImportRules);
     }
 }

@@ -6,10 +6,8 @@ namespace App\Tests\Command;
 use App\Command\CsvImportProductCommand;
 use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
-use App\Product\Csv\ProductImport;
 use App\Service\Utils\CsvProductImport;
 use App\Tests\BaseTest;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -21,7 +19,7 @@ use Symfony\Component\Validator\Validation;
  */
 class CsvImportProductCommandTest extends BaseTest
 {
-    private $commandTester;
+    private CommandTester $commandTester;
 
     public function setUp():void
     {
@@ -48,8 +46,7 @@ class CsvImportProductCommandTest extends BaseTest
             ->willReturn($dbWriterBatch);
         $serialize = new SerializeProduct();
         $writeDbProduct = new WriteDbProduct($entityManager, $validator, $serialize, $parameterBagDBInterface);
-        $productImport = new ProductImport($serialize, $validator);
-        $csvProductImport = new CsvProductImport($parameterBagImportInterface, $productImport, $writeDbProduct);
+        $csvProductImport = new CsvProductImport($parameterBagImportInterface, $writeDbProduct, $serialize, $validator);
         $app->add(new CsvImportProductCommand($csvProductImport, 'upload/csv'));
         $command = $app->find('app:csv-import-product');
         $this->commandTester = new CommandTester($command);
@@ -67,7 +64,6 @@ class CsvImportProductCommandTest extends BaseTest
         );
 
         $this->assertMatchesRegularExpression('/csvv format not found/', $this->commandTester->getDisplay());
-
     }
 
     /**
@@ -82,7 +78,6 @@ class CsvImportProductCommandTest extends BaseTest
             )
         );
         $this->assertMatchesRegularExpression('/File not exist/', $this->commandTester->getDisplay());
-
     }
 
     /**
@@ -138,7 +133,6 @@ class CsvImportProductCommandTest extends BaseTest
                 '--test'  => true,
             )
         );
-
         $this->assertMatchesRegularExpression('/Test Mode/', $this->commandTester->getDisplay());
     }
 }

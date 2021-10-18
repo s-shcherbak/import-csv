@@ -3,84 +3,58 @@ declare(strict_types=1);
 
 namespace App\Service\Utils;
 
+use App\Entity\Product;
+use App\Product\SerializeProduct;
 use App\Product\WriteDbProduct;
-use App\Product\Csv\ProductImport;
 use League\Csv\Reader;
 use League\Csv\Statement;
 use League\Csv\Exception;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-class CsvProductImport implements ProductImportInterface
+class CsvProductImport extends ProductImportAbstract
 {
-    private int $rowsCount = 0;
-    private int $rowsValidCount = 0;
-    private int $rowsErrorCount = 0;
+    protected int $rowsCount = 0;
+    protected int $rowsValidCount = 0;
+    protected int $rowsErrorCount = 0;
     private int $csvReaderBatch;
-    private $productImport;
+    private array $headerLabel = [];
+
+    /**
+     * @var SerializeProduct
+     */
+    private SerializeProduct $serialize;
+
+    /**
+     * @var ValidatorInterface
+     */
+    private ValidatorInterface $validator;
 
     /**
      * @var WriteDbProduct
      */
-    private $writeDbProduct;
+    private WriteDbProduct $writeDbProduct;
 
     public function __construct(
         ParameterBagInterface $params,
-        ProductImport $productImport,
-        WriteDbProduct $writeDbProduct
+        WriteDbProduct $writeDbProduct,
+        SerializeProduct  $serialize,
+        ValidatorInterface $validator
     ) {
         $this->csvReaderBatch = $params->get('csv_reader_batch');
-        $this->productImport = $productImport;
         $this->writeDbProduct = $writeDbProduct;
+        $this->serialize = $serialize;
+        $this->validator = $validator;
     }
 
-    /**
-     * @param void
-     *
-     * @return int
-     */
-    public function getRowCount(): int
-    {
-        return $this->rowsCount;
-    }
-
-    /**
-     * @param int
-     *
-     * @return void
-     */
-    public function setRowsCount(int $count): void
-    {
-        $this->rowsCount = $count !== 0 ? $count -1 : 0;
-    }
-
-    /**
-     * @param void
-     *
-     * @return int
-     */
-    public function getRowValidCount(): int
-    {
-        return $this->rowsValidCount;
-    }
-
-    /**
-     * @param void
-     *
-     * @return int
-     */
-    public function getRowErrorCount(): int
-    {
-        return $this->rowsErrorCount;
-    }
-
-    private function updateRowsValidCount(int $countInsertProduct): void
+    protected function updateRowsValidCount(int $countInsertProduct): void
     {
         $this->rowsValidCount += $countInsertProduct;
     }
 
-    private function updateRowsErrorCount(int $countErrorProduct): void
+    protected function updateRowsErrorCount(int $countErrorProduct): void
     {
         $this->rowsErrorCount += $countErrorProduct;
     }
@@ -89,6 +63,66 @@ class CsvProductImport implements ProductImportInterface
     {
         $this->rowsValidCount -= $countErrorProduct;
         $this->rowsErrorCount += $countErrorProduct;
+    }
+
+    /**
+     * @param array
+     *
+     * @return bool
+     */
+    private function setHeaderLabel(array $rowHeader): bool
+    {
+        if (isset($rowHeader[5])) {
+            $this->headerLabel = [
+                'code' => $rowHeader[0],
+                'name' => $rowHeader[1],
+                'description' => $rowHeader[2],
+                'stock' => $rowHeader[3],
+                'price' => $rowHeader[4],
+                'discontinued' => $rowHeader[5]
+            ];
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array $record
+     *
+     * @return Product
+     */
+    protected function setProduct(array $record): Product
+    {
+        $code = $record[$this->headerLabel['code']];
+        $name = $record[$this->headerLabel['name']];
+        $description = $record[$this->headerLabel['description']];
+        $stock = (int) $record[$this->headerLabel['stock']];
+        $price = (float) $record[$this->headerLabel['price']];
+        $discontinued = $record[$this->headerLabel['discontinued']];
+
+        return new Product(
+            $code,
+            $name,
+            $description,
+            $this->getStock($stock),
+            $this->getPrice($price),
+            $discontinued
+        );
+    }
+
+    /**
+     * @param Product $product
+     *
+     * @return bool
+     */
+    protected function checkSuccessProductRow(Product $product): bool
+    {
+        /** isImportRulesCorrect - function with logic filtering product and not valid product without code **/
+        return $this->isImportRulesCorrect($product->getPrice(), $product->getStock())
+            && $this->isNotNullCodeRow($product->getCode())
+            && $this->validator->validate($product)->count() === 0;
     }
 
     /**
@@ -114,7 +148,38 @@ class CsvProductImport implements ProductImportInterface
         $progressBar = new ProgressBar($output, $this->rowsCount);
         $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s%');
         $progressBar->start();
+
         return $progressBar;
+    }
+
+    /**
+     * @param \Iterator $records
+     *
+     * @return array
+     */
+    protected function parse(\Iterator $records): array
+    {
+        $rowsSuccess = [];
+        $rowsCountSuccess = 0;
+        $rowsCountError = 0;
+
+        /** set settings for normalize object to array */
+        $this->serialize->setSerializeSettings();
+
+        foreach ($records as $record) {
+            $product = $this->setProduct($record);
+
+            $productJson = $this->serialize->getNormalizeProduct($product);
+
+            if ($this->checkSuccessProductRow($product)) {
+                $rowsSuccess[$product->getCode()] = $productJson;
+                $rowsCountSuccess++;
+            } else {
+                $rowsCountError++;
+            }
+        }
+
+        return [$rowsSuccess, $rowsCountSuccess, $rowsCountError];
     }
 
     /**
@@ -135,7 +200,7 @@ class CsvProductImport implements ProductImportInterface
                 return false;
             }
 
-            if (!$this->productImport->setHeaderLabel($reader->getHeader())) {
+            if (!$this->setHeaderLabel($reader->getHeader())) {
                 return false;
             }
 
@@ -143,12 +208,12 @@ class CsvProductImport implements ProductImportInterface
 
             $offset = 0;
             $stmt = Statement::create()->offset($offset)->limit($this->csvReaderBatch);
-            $notFindNewRows = false;
-            while (!$notFindNewRows) {
+            $notFindRows = false;
+            while (!$notFindRows) {
                 /* @var $records \Iterator */
                 $records = $stmt->process($reader)->getRecords();
 
-                [$rowsSuccess, $rowsCountSuccess, $rowsCountError] = $this->productImport->parse($records);
+                [$rowsSuccess, $rowsCountSuccess, $rowsCountError] = $this->parse($records);
 
                 $this->updateRowsValidCount($rowsCountSuccess);
                 $this->updateRowsErrorCount($rowsCountError);
@@ -165,11 +230,12 @@ class CsvProductImport implements ProductImportInterface
                 $progressBar->advance($this->csvReaderBatch);
 
                 if ($rowsCountSuccess + $rowsCountError == 0) {
-                    $notFindNewRows = true;
+                    $notFindRows = true;
                 }
             }
             $progressBar->finish();
         }
+
         return true;
     }
 }

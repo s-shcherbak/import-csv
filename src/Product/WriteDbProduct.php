@@ -13,16 +13,16 @@ class WriteDbProduct
     /**
      * @var EntityManagerInterface
      */
-    private $em;
+    private EntityManagerInterface $em;
     /**
      * @var ValidatorInterface
      */
-    private $validator;
+    private ValidatorInterface $validator;
 
     /**
      * @var SerializeProduct
      */
-    private $serialize;
+    private SerializeProduct $serialize;
 
     private int $dbWriterBatch;
 
@@ -36,7 +36,6 @@ class WriteDbProduct
         $this->validator = $validator;
         $this->serialize = $serialize;
         $this->dbWriterBatch = $params->get('db_writer_batch');
-
     }
 
     public function addProducts(array $productsRowJson): int
@@ -48,21 +47,17 @@ class WriteDbProduct
         $sqlLogger = $this->em->getConnection()->getConfiguration()->getSQLLogger();
         $this->em->getConnection()->getConfiguration()->setSQLLogger(null);
 
-        $isStartTransaction = true;
+        $isBatchWrite = true;
         /** set settings for denormalize array to object */
         $this->serialize->setDenormalizeSettings();
 
         foreach ($productsRowJson as $code => $productRowJson) {
-            if ($isStartTransaction) {
+            if ($isBatchWrite) {
                 $this->em->getConnection()->beginTransaction();
-                $isStartTransaction = false;
+                $isBatchWrite = false;
             }
             try {
                 $product = $this->em->getRepository(Product::class)->findOneBy(['code' => $code]);
-                /** if product not exist then insert else update **/
-                if ($product === null) {
-                    $product = new Product();
-                }
 
                 /* @var $product Product */
                 $product = $this->serialize->getDenormalizeProduct(
@@ -85,7 +80,7 @@ class WriteDbProduct
                     $this->em->flush();
                     $this->em->getConnection()->commit();
                     $this->em->clear();
-                    $isStartTransaction = true;
+                    $isBatchWrite = true;
                 }
             } catch (\Exception $e) {
                 $this->em->getConnection()->rollback();

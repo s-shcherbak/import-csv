@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use Symfony\Component\Console\Helper\Table;
+use League\Csv\Exception;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -18,13 +18,12 @@ class CsvImportProductCommand extends Command
     /**
      * @var CsvProductImport
      */
-    private $csvProductImport;
+    private CsvProductImport $csvProductImport;
 
 
     public function __construct(
         CsvProductImport $csvProductImport
-    )
-    {
+    ) {
         parent::__construct();
         $this->csvProductImport = $csvProductImport;
     }
@@ -43,7 +42,7 @@ class CsvImportProductCommand extends Command
     }
 
     /**
-     * @throws \League\Csv\Exception
+     * @throws Exception
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {

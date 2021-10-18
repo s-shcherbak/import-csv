@@ -5,7 +5,6 @@ namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 /**
  * Product
@@ -15,6 +14,8 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
  */
 class Product
 {
+    public const DISCONTINUED_YES = 'yes';
+
     /**
      * @var int
      *
@@ -22,7 +23,7 @@ class Product
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="IDENTITY")
      */
-    private $id;
+    private int $id;
 
     /**
      * @var string
@@ -34,7 +35,7 @@ class Product
      * )
      * @ORM\Column(name="strProductName", type="string", length=50, nullable=false)
      */
-    private $name;
+    private string $name;
 
     /**
      * @var string
@@ -46,7 +47,7 @@ class Product
      * )
      * @ORM\Column(name="strProductDesc", type="string", length=255, nullable=false)
      */
-    private $description;
+    private string $description;
 
     /**
      * @var string
@@ -58,45 +59,75 @@ class Product
      * )
      * @ORM\Column(name="strProductCode", type="string", length=10, nullable=false)
      */
-    private $code;
+    private string $code;
+
+    private ?string $discontinued = null;
 
     /**
      * @var \DateTime|null
      *
      * @ORM\Column(name="dtmAdded", type="datetime", nullable=true)
      */
-    private $dateAdded;
+    private ?\DateTime $dateAdded;
 
     /**
      * @var \DateTime|null
      *
      * @ORM\Column(name="dtmDiscontinued", type="datetime", nullable=true)
      */
-    private $dateDiscontinued;
+    private ?\DateTime $dateDiscontinued;
 
     /**
      * @var \DateTime
      * @ORM\Column(name="stmTimestamp", type="datetime", nullable=false, options={"default"="CURRENT_TIMESTAMP"})
      */
-    private $timestamp;
+    private \DateTime $timestamp;
 
     /**
      * @var int
      *
      * @ORM\Column(name="intStock", type="integer", nullable=false)
      */
-    private $stock;
+    private int $stock;
 
     /**
      * @var float
      *
      * @ORM\Column(name="dcmlPrice", type="decimal", precision=11, scale=2, nullable=false)
      */
-    private $price;
+    private float $price;
 
-    public function __construct()
+    public function __construct(
+        string $code,
+        string $name,
+        string $description,
+        int $stock,
+        float $price,
+        ?string $discontinued
+    ) {
+        $nowDateTime = new \DateTime("now");
+        $this->code = $code;
+        $this->name = $name;
+        $this->description = $description;
+        $this->stock = $stock;
+        $this->price = $price;
+        $this->dateAdded = $nowDateTime;
+        $this->timestamp = $nowDateTime;
+        $this->discontinued = $discontinued;
+
+        if ($this->isDiscontinued($discontinued)) {
+            $this->dateDiscontinued = $nowDateTime;
+        }
+    }
+
+    /**
+     * @param string|null $discontinued
+     *
+     * @return bool
+     */
+    protected function isDiscontinued(?string $discontinued): bool
     {
-        $this->timestamp = new \DateTime();
+        return $discontinued === self::DISCONTINUED_YES;
     }
 
     public function getId(): ?int
@@ -104,40 +135,29 @@ class Product
         return $this->id;
     }
 
-    public function getName(): ?string
+    public function getName(): string
     {
         return $this->name;
     }
 
-    public function setName(string $name): self
-    {
-        $this->name = $name;
-
-        return $this;
-    }
-
-    public function getDescription(): ?string
+    public function getDescription(): string
     {
         return $this->description;
     }
 
-    public function setDescription(string $description): self
-    {
-        $this->description = $description;
-
-        return $this;
-    }
-
-    public function getCode(): ?string
+    public function getCode(): string
     {
         return $this->code;
     }
 
-    public function setCode(string $code): self
+    public function getStock(): int
     {
-        $this->code = $code;
+        return $this->stock;
+    }
 
-        return $this;
+    public function getPrice(): float
+    {
+        return $this->price;
     }
 
     public function getDateAdded(): ?\DateTimeInterface
@@ -145,61 +165,18 @@ class Product
         return $this->dateAdded;
     }
 
-    public function setDateAdded(?\DateTimeInterface $dateAdded): self
-    {
-        $this->dateAdded = $dateAdded;
-
-        return $this;
-    }
-
     public function getDateDiscontinued(): ?\DateTimeInterface
     {
         return $this->dateDiscontinued;
-    }
-
-    public function setDateDiscontinued(?\DateTimeInterface $dateDiscontinued): self
-    {
-        $this->dateDiscontinued = $dateDiscontinued;
-
-        return $this;
     }
 
     public function getTimestamp(): ?\DateTimeInterface
     {
         return $this->timestamp;
     }
-    /**
-     * @ORM\PrePersist
-     */
-    public function setTimestamp(\DateTimeInterface $timestamp): self
+
+    public function getDiscontinued(): ?string
     {
-        $this->timestamp = $timestamp;
-
-        return $this;
+        return $this->discontinued;
     }
-
-    public function getStock(): ?int
-    {
-        return $this->stock;
-    }
-
-    public function setStock(int $stock): self
-    {
-        $this->stock = $stock;
-
-        return $this;
-    }
-
-    public function getPrice(): ?float
-    {
-        return $this->price;
-    }
-
-    public function setPrice(float $price): self
-    {
-        $this->price = $price;
-
-        return $this;
-    }
-
 }
