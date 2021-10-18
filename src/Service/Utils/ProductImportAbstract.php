@@ -64,7 +64,7 @@ abstract class ProductImportAbstract
     protected function isImportRulesCorrect(float $price, int $stock): bool
     {
         return ($price >= self::MIN_PRICE
-                && $stock >= self::MIN_AMOUNT)
+                || $stock >= self::MIN_AMOUNT)
             && ($price <= self::MAX_PRICE);
     }
 

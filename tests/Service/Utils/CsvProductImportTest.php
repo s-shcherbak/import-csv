@@ -115,9 +115,9 @@ class CsvProductImportTest extends BaseTest
         $this->assertSame(true, $isImportRules);
     }
 
-    public function testRulesImportInvalidStock(): void
+    public function testRulesImportInvalidStockAndPriceMin(): void
     {
-        $price = 399.99;
+        $price = 4.99;
         $stock = 1;
 
         $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
@@ -139,6 +139,6 @@ class CsvProductImportTest extends BaseTest
         $stock = 50;
 
         $isImportRules = $this->invokeMethod($this->csvProductImport, 'isImportRulesCorrect', [$price, $stock]);
-        $this->assertSame(false, $isImportRules);
+        $this->assertSame(true, $isImportRules);
     }
 }
